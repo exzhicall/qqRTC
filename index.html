@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+    <style>
+        [box]{
+            width: 480px;
+            height: 360px;
+        }
+    </style>
+</head>
+<body>
+<!--<video id="localVideoMedia" muted autoplay playsinline style="width: 400px;height: 400px;"></video>-->
+<div >
+    <button onclick="closeAudio()">关闭麦克风</button>
+    <button onclick="openAudio()">打开麦克风</button>
+    <button onclick="closeVideo()">关闭摄像头</button>
+    <button onclick="openVideo()">打开摄像头</button>
+    <button onclick="alert('1111')">xxxxx</button>
+</div>
+<video id="localVideo" box muted autoplay playsinline ></video>
+<!-- 远端视频流 -->
+<div id="remoteVideoView">
+    <video id="remoteVideo1" box autoplay playsinline></video>
+</div>
+<script src="https://sqimg.qq.com/expert_qq/webrtc/2.2/WebRTCAPI.min.js"></script>
+<script>
+    // var url = 'http://172.16.30.56:8083' + '/im-server/im/rtcSin'
+    var url = 'http://172.16.10.233:8039' + '/im-server/im/rtcSin'
+    console.log($.ajax)
+    var userId = '123';
+    var SDKAppid = 1400091272;
+    var accountType = 26750;
+    var appid = "1256720516";
+    var businessId = '41'
+    var userSig = ''
+    var privateMapKey = ''
+    var user = ''
+    var room = ''
+    var streamList = []
+    var RTC = {}
+    $.ajax({
+        url: url,
+        type: 'post',
+        dataType: 'json',
+        data: {
+            agencyId: 10365,
+            businessType: 'DoctorConsultation',
+            userId: userId,
+            businessId: businessId,
+        },
+        success: function (val) {
+            console.log(val)
+            console.log(val.data)
+            user = val.data.user
+            room = val.data.room
+            userSig = val.data.userSig
+            privateMapKey = val.data.privMapEncrypt
+            rtc()
+        }
+    })
+    var detector = WebRTCAPI.fn.detectRTC();
+    if( !detector.support){
+        alert('不支持WebRTC')
+    }
+    // // console.log(detector)
+    //
+    // var userSig = "eJxNj11Pg0AQRf*K2Wdj94OP0reKVGkVRaHFp82muy0jlq7LtqEx-neBYOI8nntmJvcbZY9vN2K7PZ5qy*1FKzRDGF0PGKSqLexAmQ4SQkYstAbJheXMyH92Iys*RL3sYIwDQn06hqrVYBQXOzscm3qd8LcH*448Re9hnIaL4jMum*o*mn*lp6Awfi7d9Jyw7CATv5wsavt6mzR25flpXM6fK1eLAtZ5u7qbqKW2LyAyJsOcbmDzYdsHud5HWbsU7nR8ZuHQNyQu9RzGHByM-KxMA8caza4QxcQllOF*0M8vxsFWLw__";
+    // var privateMapKey = "eJxNj9tugzAMhl9lyu2mNYHQ0kq7CKeKdnRD0E69QqyELqUcFMJp0959oWPSfGHZ3*-flr9A*Bw8xlXFkigWkcoTsAIQPPzi06lsChGJoaL-MEtoIVjKKJcQITThOsmi26KRYgjhEikLZRJpXzFOozgVN5c*lwN-PnaWxLOPputbOAiQM8SfTRkcLMtpO83s9v0ic6AT4LAKh*aCeQnXzPPdD*KlUjHppXPz1r*uM7fuM12-2mjL3gzPxod8W2*OuHgN76djguXjK0hT5lhVMVxOvKkpf29SKRFCLC*0*736MjDZGLtNPNudDVmSWTdm8jSZWsprVhZgdQcUiDSkqHAM8P0DfVFlhw__";
+    function rtc() {
+        RTC = new WebRTCAPI({
+            "userId": user,
+            "userSig": userSig,
+            "privateMapKey":privateMapKey,
+            "sdkAppId":  SDKAppid,
+            "accountType":  accountType,
+            "preconn": 0,
+            "closeLocalMedia": false
+        },function(data){
+            // console.log(data)
+            RTC.createRoom({
+                roomid : room,
+                privateMapKey: privateMapKey,
+                role : "user",   //画面设定的配置集名 （见控制台 - 画面设定 )
+            }, function (data) {
+                console.log(data)
+            },function (data) {
+                console.log(data)
+            });
+        }, function(data){
+            console.debug( ' 初始化失败 ' , data)
+        });
+        RTC.on( 'onLocalStreamAdd' , function( data ){
+            if( data && data.stream){
+                var stream = data.stream
+                document.querySelector("#localVideo").srcObject = stream
+                // $('#remoteVideoView').html('')
+                // var $v = document.createElement('video')
+                // $v.srcObject = data.stream
+                // $v.muted = true
+                // $v.autoplay = true
+                // $v.playsinline = true
+                // console.log($('#remoteVideoView'))
+                // $('#remoteVideoView').append($v)
+            }
+        })
+        RTC.on( 'onRemoteStreamUpdate' , function( data ){
+            // console.log(data)
+            var len = streamList.length
+            if( data && data.stream) {
+                if (len === 0) {
+                    streamList.push(data)
+                } else {
+                    var flag = false
+                    var index = 0
+                    for (var i in streamList) {
+                        var streamData = streamList[i]
+                        if (streamData.openId === data.openId) {
+                            flag = true
+                            index = i
+                        } else {
+                        }
+                    }
+                    if (flag) {
+                        streamList.splice(index, 1, data)
+                    } else {
+                        streamList.push(data)
+                    }
+                }
+                RemoteStream()
+            } else {
+                console.debug( 'somebody enter this room without stream' )
+            }
+        })
+
+    }
+    function RemoteStream() {
+        $('#remoteVideoView').html('')
+        for(var i in streamList){
+            var streamData = streamList[i]
+            var $v = document.createElement('video')
+            $v.srcObject = streamData.stream
+            $v.setAttribute('box', '')
+            $v.setAttribute('autoplay', '')
+            $v.setAttribute('playsinline', '')
+            $('#remoteVideoView').append($v)
+        }
+        // streamList.push(data.openId)
+
+    }
+
+
+    function openAudio() {
+        RTC.openAudio()
+    }
+    function closeAudio() {
+        RTC.closeAudio()
+    }
+    function openVideo() {
+        RTC.openVideo()
+    }
+    function closeVideo() {
+        RTC.closeVideo()
+    }
+
+</script>
+</body>
+</html>
